@@ -52,7 +52,6 @@ def _update_zip_codes():
     else:
         print('Table does not exist')
         #create table if not exists
-        #zip as a priomary key to be able to update the table (SCD type 1 logic)
         cursor.execute("""CREATE TABLE IF NOT EXISTS clima.check_zips AS
             SELECT * 
             FROM clima.zip_coordinates
@@ -75,7 +74,9 @@ with DAG(
     start_task = EmptyOperator(task_id="start_task")
 
     end_task = EmptyOperator(task_id="end_task")
-
+#sensor that checks if there are new rows in the zip_coordinates table, we use an additional table named check_zips to store the previous state of the table
+#This help us to determine if there are new rows in the table
+#we use the success and failure criteria to determine if the task should continue or fail
     waiting_for_partner = SqlSensor(
         task_id="waiting_for_rows",
         conn_id="postgres",
@@ -88,7 +89,7 @@ with DAG(
         #mode="reschedule",
         timeout=60,
     )
-
+#in case there is a new row we update our check_zips table
     update_zip = PythonOperator(
         task_id="update_zip_codes", python_callable=_update_zip_codes
     )
